@@ -34,6 +34,8 @@
 
 <link rel="preconnect" href="https://api.fontshare.com" />
 <link href="https://api.fontshare.com/v2/css?f[]=excon@700,400&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
 
 <style>
   html { scroll-behavior: smooth; }
@@ -141,6 +143,65 @@
 
   .link-quiet { transition: color .2s ease; }
   .link-quiet:hover { color: #fff; }
+
+  /* ---------------------------------------------------------------
+     Motion layer.
+
+     Every rule that hides something is scoped to .motion-ready, a class
+     added by script only once the animation engine is confirmed running.
+     With no JS, a failed CDN, a throttled tab or reduced motion, none of
+     these apply and the sequence renders as four readable panels.
+     Content is never gated on an animation firing.
+     --------------------------------------------------------------- */
+
+  /* The active step is emphasised, never the inactive ones hidden. Every
+     paragraph stays on screen and fully legible whatever the engine does:
+     if the scrubber never fires, this reads as an ordinary numbered list.
+     Nothing here collapses, clips or zeroes out real text. */
+  .step h3, .step p { transition: color .35s ease; }
+  .motion-ready .step h3 { color: #9a9aa4; }
+  .motion-ready .step p { color: #6f6f7a; }
+  .motion-ready .step[data-active="true"] h3 { color: #ffffff; }
+  .motion-ready .step[data-active="true"] p { color: #a3a3ae; }
+
+  .step-index { transition: color .35s ease; }
+  .motion-ready .step[data-active="true"] .step-index { color: #ff8a3d; }
+
+  /* A marker that travels down the list as the sequence advances. */
+  .step { position: relative; }
+  .step::before {
+    content: ''; position: absolute; left: -14px; top: 4px; bottom: 4px; width: 2px;
+    border-radius: 2px; background: linear-gradient(180deg,#ff8a3d,#ff5213);
+    opacity: 0; transform: scaleY(.4); transform-origin: 50% 50%;
+    transition: opacity .35s ease, transform .35s ease;
+  }
+  .motion-ready .step[data-active="true"]::before { opacity: 1; transform: scaleY(1); }
+
+  .motion-ready .sequence-panel { position: sticky; top: 88px; }
+
+  /* Cursor spotlight: light that follows the pointer across a panel,
+     rather than a symmetric halo parked behind it. */
+  .spotlight { position: relative; isolation: isolate; }
+  .spotlight::before {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    border-radius: inherit; opacity: 0; transition: opacity .35s ease;
+    background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%),
+                rgba(255,122,41,.10), transparent 62%);
+  }
+  .spotlight:hover::before { opacity: 1; }
+  @media (hover: none) { .spotlight::before { display: none; } }
+
+  .authority-cell { transition: color .4s ease, background-color .4s ease; }
+  .authority-changed { color: #ff8a3d; background-color: rgba(255,98,31,.09); }
+  .verdict-pill { transition: background-color .4s ease, color .4s ease, border-color .4s ease; }
+  .flow-path { stroke-dasharray: 1; stroke-dashoffset: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .motion-ready .step h3 { color: #ffffff !important; }
+    .motion-ready .step p { color: #a3a3ae !important; }
+    .motion-ready .step::before { opacity: 1 !important; transform: none !important; }
+    .motion-ready .sequence-panel { position: static !important; }
+  }
 </style>
 </head>
 
@@ -224,6 +285,7 @@
 
   <nav class="hidden md:flex items-center glass-nav rounded-full px-2 py-1.5 gap-1 text-xs font-medium text-neutral-300">
     <a href="#proof" class="px-3.5 py-1.5 rounded-full bg-white/10 text-white link-quiet">The proof</a>
+    <a href="#sequence" class="px-3.5 py-1.5 link-quiet">The sequence</a>
     <a href="#how" class="px-3.5 py-1.5 link-quiet">How it works</a>
     <a href="#why" class="px-3.5 py-1.5 link-quiet">Why now</a>
     <a href="#limits" class="px-3.5 py-1.5 link-quiet">Limits</a>
@@ -274,10 +336,139 @@
 </main>
 </div><!-- /hero-stage -->
 
+
+<!-- ============================ THE SEQUENCE ============================ -->
+<section id="sequence" class="relative z-20 w-full max-w-6xl mx-auto px-5 lg:px-8 pb-20 scroll-mt-20">
+  <div class="mb-8">
+    <h2 class="font-display text-xl sm:text-2xl font-bold text-white">Watch the chain disagree with the keeper.</h2>
+    <p class="text-[13px] text-neutral-400 mt-2 max-w-2xl leading-relaxed">
+      Four states, in the order they actually happened on devnet. The panel is the vault&rsquo;s recorded
+      state at each step.
+    </p>
+  </div>
+
+  <div id="sequenceScope" class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] gap-8 lg:gap-12 items-start">
+
+    <ol class="space-y-5 lg:space-y-7 order-2 lg:order-1 pl-4">
+      <li class="step" data-step="0" data-active="true">
+        <div class="flex items-baseline gap-3">
+          <span class="step-index font-mono text-[11px] text-neutral-600">01</span>
+          <h3 class="font-display text-base sm:text-lg font-bold text-white">Armed</h3>
+        </div>
+        <div class="step-body pl-8">
+          <p class="text-[12.5px] text-neutral-400 mt-2 leading-relaxed">
+            The owner arms a policy against a deployed program. The baseline upgrade authority is read
+            <em class="not-italic text-neutral-300">by the program, from the chain</em> &mdash; not handed to
+            it by the keeper. Both sides of the later comparison are the chain&rsquo;s own.
+          </p>
+        </div>
+      </li>
+
+      <li class="step" data-step="1">
+        <div class="flex items-baseline gap-3">
+          <span class="step-index font-mono text-[11px] text-neutral-600">02</span>
+          <h3 class="font-display text-base sm:text-lg font-bold text-white">Proposed, and refused</h3>
+        </div>
+        <div class="step-body pl-8">
+          <p class="text-[12.5px] text-neutral-400 mt-2 leading-relaxed">
+            The keeper proposes an exit. The program re-reads the authority, finds it unchanged, and
+            aborts. The keeper was wrong, or lying, or compromised &mdash; it never mattered which. No
+            transaction, no movement.
+          </p>
+        </div>
+      </li>
+
+      <li class="step" data-step="2">
+        <div class="flex items-baseline gap-3">
+          <span class="step-index font-mono text-[11px] text-neutral-600">03</span>
+          <h3 class="font-display text-base sm:text-lg font-bold text-white">Seized</h3>
+        </div>
+        <div class="step-body pl-8">
+          <p class="text-[12.5px] text-neutral-400 mt-2 leading-relaxed">
+            The upgrade authority is genuinely transferred, with the ordinary loader instruction any
+            team would use. This is the real trigger, fired against a program we deployed and say out
+            loud that we own.
+          </p>
+        </div>
+      </li>
+
+      <li class="step" data-step="3">
+        <div class="flex items-baseline gap-3">
+          <span class="step-index font-mono text-[11px] text-neutral-600">04</span>
+          <h3 class="font-display text-base sm:text-lg font-bold text-white">Landed</h3>
+        </div>
+        <div class="step-body pl-8">
+          <p class="text-[12.5px] text-neutral-400 mt-2 leading-relaxed">
+            The identical exit is proposed again. This time the chain agrees, and the funds go to the
+            owner &mdash; the only address they can ever go to. Same transaction as step 02; one fact apart.
+          </p>
+        </div>
+      </li>
+    </ol>
+
+    <div class="sequence-panel order-1 lg:order-2">
+      <div class="glass spotlight rounded-2xl p-5 sm:p-6 relative">
+        <div class="relative z-10">
+          <div class="flex items-center justify-between gap-3 pb-4 border-b border-white/[0.07]">
+            <div class="flex items-center gap-2.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M6 4v9a6 6 0 0 0 12 0V4" stroke="#8a8a95" stroke-width="1.7" stroke-linecap="round"/>
+                <path d="M12 13v7" stroke="#ff6a20" stroke-width="2.4" stroke-linecap="round"/>
+                <circle cx="12" cy="21.2" r="1.8" fill="#ff6a20"/>
+              </svg>
+              <span class="text-[12px] font-semibold text-neutral-200">Policy 1</span>
+            </div>
+            <span id="seqPhase" class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">armed</span>
+          </div>
+
+          <dl class="pt-4 space-y-3 text-[11.5px]">
+            <div class="flex justify-between gap-3 items-center">
+              <dt class="text-neutral-500 shrink-0">Baseline authority</dt>
+              <dd class="font-mono text-neutral-300 truncate">62Fizq&hellip;M39TW</dd>
+            </div>
+            <div class="flex justify-between gap-3 items-center">
+              <dt class="text-neutral-500 shrink-0">Live authority</dt>
+              <dd id="seqLive" class="authority-cell font-mono text-neutral-300 truncate px-1.5 py-0.5 rounded">62Fizq&hellip;M39TW</dd>
+            </div>
+            <div class="flex justify-between gap-3 items-center">
+              <dt class="text-neutral-500 shrink-0">Vault balance</dt>
+              <dd class="font-mono text-neutral-300"><span id="seqBalance">1.61380236</span> SOL</dd>
+            </div>
+          </dl>
+
+          <div class="mt-5 pt-4 border-t border-white/[0.07]">
+            <svg viewBox="0 0 320 64" class="w-full h-[64px]" aria-hidden="true">
+              <defs>
+                <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#ff8a3d"/><stop offset="100%" stop-color="#ff5213"/>
+                </linearGradient>
+              </defs>
+              <path d="M28 32 H150" stroke="#2c2c36" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M170 32 H292" stroke="#2c2c36" stroke-width="1.5" stroke-linecap="round"/>
+              <path id="flowA" class="flow-path" d="M28 32 H150" stroke="url(#flowGrad)" stroke-width="2" stroke-linecap="round"/>
+              <path id="flowB" class="flow-path" d="M170 32 H292" stroke="url(#flowGrad)" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="20" cy="32" r="6" fill="none" stroke="#5a5a66" stroke-width="1.5"/>
+              <rect x="152" y="22" width="18" height="20" rx="3" fill="none" stroke="#5a5a66" stroke-width="1.5"/>
+              <circle id="flowEnd" cx="300" cy="32" r="6" fill="none" stroke="#5a5a66" stroke-width="1.5"/>
+              <text x="20" y="54" text-anchor="middle" fill="#6b6b76" font-size="8" font-family="ui-monospace, monospace">keeper</text>
+              <text x="161" y="54" text-anchor="middle" fill="#6b6b76" font-size="8" font-family="ui-monospace, monospace">program</text>
+              <text x="300" y="54" text-anchor="middle" fill="#6b6b76" font-size="8" font-family="ui-monospace, monospace">owner</text>
+            </svg>
+          </div>
+
+          <div id="seqVerdict" class="verdict-pill mt-4 rounded-lg border border-white/[0.08] bg-black/35 px-4 py-3 text-[12px] text-neutral-400">
+            Policy armed. Baseline recorded by the program.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============================ THE PROOF ============================ -->
 <section id="proof" class="relative z-20 w-full max-w-6xl mx-auto px-5 lg:px-8 pb-16 scroll-mt-20">
 
-  <div class="glass rounded-2xl p-5 sm:p-7 relative overflow-hidden">
+  <div class="glass spotlight rounded-2xl p-5 sm:p-7 relative overflow-hidden">
     <div class="flex flex-wrap items-start justify-between gap-4 mb-1">
       <div>
         <h2 class="font-display text-lg sm:text-xl font-bold text-white">Two identical exits. One fact apart.</h2>
@@ -425,17 +616,17 @@
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 mt-7">
       <div>
-        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">$130M<span class="text-neutral-600">+</span></p>
+        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight"><span class="tally" data-to="130" data-prefix="$" data-suffix="M">$130M</span><span class="text-neutral-600">+</span></p>
         <p class="text-[12px] text-neutral-300 mt-1.5 font-medium">marginfi, April 2024</p>
         <p class="text-[11px] text-neutral-500 mt-1 leading-relaxed">Withdrawn in 24 hours after the CEO resigned. No hack, no exploit. Humans racing for the exit.</p>
       </div>
       <div>
-        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">$285M</p>
+        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight"><span class="tally" data-to="285" data-prefix="$" data-suffix="M">$285M</span></p>
         <p class="text-[12px] text-neutral-300 mt-1.5 font-medium">Drift, April 2026</p>
         <p class="text-[11px] text-neutral-500 mt-1 leading-relaxed">Drained over roughly two and a half hours. Depositors never got to run: withdrawals were paused.</p>
       </div>
       <div>
-        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">9,372</p>
+        <p class="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight"><span class="tally" data-to="9372" data-group="1">9,372</span></p>
         <p class="text-[12px] text-neutral-300 mt-1.5 font-medium">Kamino, October 2025</p>
         <p class="text-[11px] text-neutral-500 mt-1 leading-relaxed">Liquidations across 1,895 wallets, seizing $25.5M of collateral.</p>
       </div>
@@ -488,5 +679,203 @@
   </div>
 </footer>
 
+
+<script>
+(function () {
+  'use strict';
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ---------------------------------------------------------------
+  // The four states of the sequence. The panel holds real recorded
+  // values from the devnet run, so scrubbing the page replays what
+  // actually happened rather than an invented animation.
+  // ---------------------------------------------------------------
+  var STATES = [
+    {
+      phase: 'armed',
+      live: '62Fizq\u2026M39TW',
+      changed: false,
+      balance: 1.61380236,
+      flowA: 0, flowB: 0,
+      verdict: 'Policy armed. Baseline recorded by the program.',
+      tone: 'neutral'
+    },
+    {
+      phase: 'refused',
+      live: '62Fizq\u2026M39TW',
+      changed: false,
+      balance: 1.61380236,
+      flowA: 1, flowB: 0,
+      verdict: 'Refused. The authority is unchanged, so the predicate is false and nothing moves.',
+      tone: 'neutral'
+    },
+    {
+      phase: 'seized',
+      live: 'CtRkEP\u2026kFji',
+      changed: true,
+      balance: 1.61380236,
+      flowA: 0, flowB: 0,
+      verdict: 'The upgrade authority just moved. The predicate is now true.',
+      tone: 'hot'
+    },
+    {
+      phase: 'landed',
+      live: 'CtRkEP\u2026kFji',
+      changed: true,
+      balance: 1.66379236,
+      flowA: 1, flowB: 1,
+      verdict: 'Landed. The chain agreed, and the funds went to the owner.',
+      tone: 'hot'
+    }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var steps = Array.prototype.slice.call(document.querySelectorAll('.step'));
+  var current = -1;
+
+  function setLength(path) {
+    if (!path) return 0;
+    var length = path.getTotalLength();
+    path.style.strokeDasharray = length;
+    path.style.strokeDashoffset = length;
+    return length;
+  }
+
+  var flowA = $('flowA'), flowB = $('flowB');
+  var lenA = setLength(flowA), lenB = setLength(flowB);
+
+  function applyState(index) {
+    if (index === current) return;
+    current = index;
+    var state = STATES[index];
+    if (!state) return;
+
+    $('seqPhase').textContent = state.phase;
+    $('seqLive').textContent = state.live;
+    $('seqLive').classList.toggle('authority-changed', state.changed);
+
+    if (flowA) flowA.style.strokeDashoffset = lenA * (1 - state.flowA);
+    if (flowB) flowB.style.strokeDashoffset = lenB * (1 - state.flowB);
+
+    var end = $('flowEnd');
+    if (end) end.setAttribute('stroke', state.flowB ? '#ff8a3d' : '#5a5a66');
+
+    var verdict = $('seqVerdict');
+    verdict.textContent = state.verdict;
+    verdict.className = 'verdict-pill mt-4 rounded-lg px-4 py-3 text-[12px] border ' +
+      (state.tone === 'hot'
+        ? 'border-brand-ember/35 bg-brand-ember/[0.08] text-neutral-200'
+        : 'border-white/[0.08] bg-black/35 text-neutral-400');
+
+    countTo($('seqBalance'), state.balance, 8);
+
+    steps.forEach(function (step, i) {
+      step.setAttribute('data-active', i === index ? 'true' : 'false');
+    });
+  }
+
+  // Number morphing. The element already contains the final value in the
+  // HTML, so if this never runs the figure is still correct and readable.
+  function countTo(element, target, decimals) {
+    if (!element) return;
+    var from = parseFloat(String(element.textContent).replace(/,/g, '')) || 0;
+    if (reduced || from === target) {
+      element.textContent = decimals ? target.toFixed(decimals) : format(target);
+      return;
+    }
+    var started = performance.now();
+    var duration = 550;
+    function frame(now) {
+      var t = Math.min((now - started) / duration, 1);
+      var eased = 1 - Math.pow(1 - t, 3);
+      var value = from + (target - from) * eased;
+      element.textContent = decimals ? value.toFixed(decimals) : format(Math.round(value));
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function format(n) { return n.toLocaleString('en-US'); }
+
+  // ---------------------------------------------------------------
+  // Cursor spotlight. Pointer position drives a light across the panel.
+  // ---------------------------------------------------------------
+  document.querySelectorAll('.spotlight').forEach(function (panel) {
+    panel.addEventListener('pointermove', function (event) {
+      var box = panel.getBoundingClientRect();
+      panel.style.setProperty('--mx', ((event.clientX - box.left) / box.width * 100) + '%');
+      panel.style.setProperty('--my', ((event.clientY - box.top) / box.height * 100) + '%');
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // Scroll choreography. Only engaged once GSAP is confirmed present;
+  // until then the page is a normal, fully readable document.
+  // ---------------------------------------------------------------
+  function start() {
+    if (!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    if (!reduced) document.body.classList.add('motion-ready');
+    applyState(0);
+
+    var scope = document.getElementById('sequenceScope');
+    if (scope && !reduced) {
+      // The sequence is scrubbed: scroll position is the transport. Scrolling
+      // back up reverses it, because the state is derived from position
+      // rather than replayed from an event.
+      ScrollTrigger.create({
+        trigger: scope,
+        start: 'top 68%',
+        end: 'bottom 55%',
+        onUpdate: function (self) {
+          var index = Math.min(STATES.length - 1, Math.floor(self.progress * STATES.length));
+          applyState(index);
+        }
+      });
+    }
+
+    // Multi-layer parallax: the light field drifts slower than the page, so
+    // the hero reads with depth. Transform only, so nothing can be stranded
+    // invisible.
+    var field = document.querySelector('.hero-field');
+    if (field && !reduced) {
+      gsap.to(field, {
+        yPercent: 12,
+        ease: 'none',
+        scrollTrigger: { trigger: '.hero-stage', start: 'top top', end: 'bottom top', scrub: true }
+      });
+    }
+
+    // The stat figures count as they arrive. They already read correctly
+    // before this runs.
+    document.querySelectorAll('.tally').forEach(function (element) {
+      var target = parseFloat(element.getAttribute('data-to'));
+      var prefix = element.getAttribute('data-prefix') || '';
+      var suffix = element.getAttribute('data-suffix') || '';
+      ScrollTrigger.create({
+        trigger: element,
+        start: 'top 88%',
+        once: true,
+        onEnter: function () {
+          if (reduced) return;
+          var started = performance.now();
+          function frame(now) {
+            var t = Math.min((now - started) / 900, 1);
+            var eased = 1 - Math.pow(1 - t, 3);
+            element.textContent = prefix + format(Math.round(target * eased)) + suffix;
+            if (t < 1) requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start);
+})();
+</script>
 </body>
 </html>
