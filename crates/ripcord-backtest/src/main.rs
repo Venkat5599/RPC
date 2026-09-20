@@ -17,6 +17,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::{bail, Result};
+use ripcord_backtest::block_scan;
 use ripcord_backtest::cache::Cache;
 use ripcord_backtest::engine::{self, WindowResult};
 use ripcord_backtest::incidents::{self, Incident};
@@ -32,6 +33,16 @@ struct Options {
     throttle_ms: u64,
     /// Length of the `smoke-recent` self-test window, in minutes.
     smoke_minutes: i64,
+    /// How the window is read. Blocks reach history; signatures do not.
+    scan: Scan,
+    /// Parallel block readers.
+    concurrency: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scan {
+    Blocks,
+    Signatures,
 }
 
 impl Default for Options {
@@ -44,6 +55,8 @@ impl Default for Options {
             out: None,
             throttle_ms: 250,
             smoke_minutes: 5,
+            scan: Scan::Blocks,
+            concurrency: 8,
         }
     }
 }
@@ -77,6 +90,11 @@ options for run:
   --out <file>                 write the report here (default: stdout only)
   --throttle-ms <n>            pause between RPC calls (default 250)
   --smoke-minutes <n>          length of the smoke-recent self-test window (default 5)
+  --scan <blocks|signatures>   how to read the window (default blocks)
+                               blocks:     resolves the window to a slot range and reads it.
+                                           The only mode that reaches a historical window.
+                               signatures: pages backwards from the present. Recent windows only.
+  --concurrency <n>            parallel block readers (default 8)
 
   --incident smoke-recent      live self-test over recent Kamino traffic;
                                needs no archival history
@@ -106,6 +124,14 @@ fn parse_options(arguments: &[String]) -> Result<Options> {
             "--out" => options.out = Some(PathBuf::from(value()?)),
             "--throttle-ms" => options.throttle_ms = value()?.parse()?,
             "--smoke-minutes" => options.smoke_minutes = value()?.parse()?,
+            "--concurrency" => options.concurrency = value()?.parse()?,
+            "--scan" => {
+                options.scan = match value()?.as_str() {
+                    "blocks" => Scan::Blocks,
+                    "signatures" => Scan::Signatures,
+                    other => bail!("--scan takes blocks or signatures, not {other}"),
+                }
+            }
             other => bail!("unknown option {other}"),
         }
         index += 1;
@@ -188,15 +214,36 @@ fn run(options: Options) -> Result<()> {
         }
 
         let policy = engine::policy_for(&incident, &program_data);
-        let result = engine::run_window(
-            &client,
-            &cache,
-            &incident,
-            &policy,
-            options.page_limit,
-            options.limit,
-            |message| eprintln!("{message}"),
-        )?;
+        let result = match options.scan {
+            Scan::Blocks => {
+                let (result, window) = block_scan::scan(
+                    &client,
+                    &cache,
+                    &incident,
+                    &policy,
+                    options.concurrency,
+                    options.limit,
+                    &|message: &str| eprintln!("{message}"),
+                )?;
+                eprintln!(
+                    "  window resolved to slots {}..={} ({} to {})",
+                    window.start_slot,
+                    window.end_slot,
+                    report::utc(Some(window.start_time)),
+                    report::utc(Some(window.end_time))
+                );
+                result
+            }
+            Scan::Signatures => engine::run_window(
+                &client,
+                &cache,
+                &incident,
+                &policy,
+                options.page_limit,
+                options.limit,
+                |message| eprintln!("{message}"),
+            )?,
+        };
 
         eprintln!(
             "  {} examined, {} detections, {} refusals, {} skipped",
@@ -239,6 +286,12 @@ fn rebuild_command(options: &Options) -> String {
     }
     if options.page_limit != 1000 {
         parts.push(format!("--page-limit {}", options.page_limit));
+    }
+    if options.scan == Scan::Signatures {
+        parts.push("--scan signatures".to_string());
+    }
+    if options.concurrency != 8 {
+        parts.push(format!("--concurrency {}", options.concurrency));
     }
     parts.push(format!("--cache {}", options.cache_dir.display()));
     if let Some(out) = &options.out {

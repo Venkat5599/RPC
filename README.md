@@ -39,10 +39,23 @@ generated report says so rather than estimating one.**
 
 | Component | State |
 |---|---|
-| `ripcord-policy` — evaluator, authority-change policy | building, 17/17 tests passing |
-| `ripcord-backtest` — historical replay | runs end to end against mainnet |
-| `ripcord_vault` — Anchor program | not started (Phase 2) |
+| `ripcord-policy` — evaluator, authority-change policy | 10 tests passing |
+| `ripcord-backtest` — historical replay, slot-bounded block scanner | 7 tests; runs end to end against mainnet |
+| `ripcord_vault` — Anchor program | builds to SBF; 20 tests, including the delegation invariant |
 | Live TxStream engine | not started (Phase 3, needs Aperture access) |
+
+**37 tests pass across the workspace.** The ones worth naming:
+
+- `the_guardian_cannot_fire_while_the_predicate_is_false` — a correctly-signed exit from the
+  correct guardian is rejected because the chain checked the condition and disagreed.
+- `the_guardian_cannot_send_funds_to_a_third_party` — with the predicate genuinely true, an exit
+  aimed anywhere but the owner still fails. This is PRD A2.
+- `parses_the_authority_of_a_real_mainnet_program` — the on-chain parser and Solana's own
+  `jsonParsed` decoder agree on the authority of Kamino Lend's real `ProgramData` account. Two
+  independent decoders on real bytes, not a buffer agreeing with itself.
+
+These run in LiteSVM against the compiled `.so`, which lets the test rewrite a `ProgramData`
+account's authority bytes — an attacker seizing a protocol, reproduced deterministically.
 
 ### One evaluator, three input sources
 
@@ -64,6 +77,10 @@ Requires a Rust toolchain. An archival RPC endpoint is required for the historic
 `RIPCORD_RPC_URL` selects it, and it falls back to public mainnet.
 
 ```bash
+# The program: build, then run the invariant tests against the compiled .so
+anchor build
+cargo test --workspace
+
 # Check every configured program ID against the chain before trusting it
 cargo run -p ripcord-backtest -- verify
 
@@ -84,8 +101,11 @@ easiest way to publish a confidently wrong report.
 
 - **If a protocol pauses withdrawals, RIPCORD cannot exit either.** The window is between the first
   malicious transaction and the pause. On Drift that was hours wide, but it is a real ceiling.
-- `getSignaturesForAddress` pages backwards from the present, so reaching a 2024 or 2025 window
-  needs slot-bounded scanning against an archival endpoint. Public mainnet RPC cannot serve it.
+- The slot-bounded block scanner is built and resolves a window correctly, but public mainnet RPC
+  resets the connection under `getBlock` load. Reaching a historical window needs an archival
+  endpoint; this is the one thing standing between here and a real backtest number.
+- `ripcord_vault` is not deployed. It builds, and its invariants are tested against the compiled
+  program, but no mainnet program ID exists yet.
 - Drift and marginfi program IDs are not yet established, so those windows currently enumerate
   without watching anything. The report prints that.
 - Only the authority-change policy is implemented. Oracle staleness and outflow rate are roadmap.

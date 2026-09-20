@@ -119,8 +119,26 @@ pub fn render(input: &ReportInput<'_>) -> String {
         );
         let _ = writeln!(
             out,
-            "- Transactions: {} examined, {} fetched this run, {} from cache",
-            result.examined, result.fetched, result.from_cache
+            "- Read by: {} scan",
+            match result.scan_mode {
+                crate::engine::ScanMode::Signatures => "signature",
+                crate::engine::ScanMode::Blocks => "block",
+            }
+        );
+        if let Some((start, end)) = result.slot_range {
+            let _ = writeln!(
+                out,
+                "- Slots scanned: {start}..={end} ({} slots)",
+                end.saturating_sub(start) + 1
+            );
+        }
+        let _ = writeln!(
+            out,
+            "- Transactions examined: {}. This run fetched {} {}, {} came from cache.",
+            result.examined,
+            result.fetched,
+            result.scan_mode.unit(),
+            result.from_cache
         );
         let _ = writeln!(
             out,

@@ -1,0 +1,9 @@
+{
+  "note": "First 45 bytes of Kamino Lend's ProgramData account, fetched from mainnet. Used to prove the on-chain parser reads the authority at the right offset.",
+  "program": "KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD",
+  "program_data_account": "9uSbGW1y9H5Av6H5TKxQ1wnFApSq2t3oEpfF2YfjDQGA",
+  "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+  "fetched_at": "2026-09-20",
+  "expected_authority": "GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW",
+  "head_base64": "AwAAAHdLQRoAAAAAAe2KAyz2sSxYZ1SbqX4ZAaGyRsTPFkrNy7+tAU2nA+an"
+}

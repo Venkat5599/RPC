@@ -71,9 +71,37 @@ Goal, stated as the sentence it must produce:
 - Drift and marginfi program IDs are not established, so those windows currently enumerate the
   loader and watch nothing. The report prints that rather than hiding it.
 
+## Slice 2 — 20 Sep 2026, same day
+
+**Done, with the probe.**
+
+- [x] Slot-bounded window scanning. Binary search over `getBlockTime` resolved a one-minute
+      window to slots 448691655..=448691885 with the observed times matching. Block reading works;
+      public RPC then reset the connection under load, which is the endpoint, not the scanner.
+- [x] `ripcord_vault` Anchor program builds to SBF (282KB) with IDL. Program ID
+      `84h2juN2WaFhZtGbaqmeWVVe7HQCUXnDRRtbGZQeAeTu` (local keypair, not yet deployed).
+- [x] **PRD A2 proven.** `the_guardian_cannot_send_funds_to_a_third_party`: predicate genuinely
+      true, guardian correctly signed, destination anywhere but the owner → rejected, zero lamports
+      moved.
+- [x] **The predicate proven false-safe.** `the_guardian_cannot_fire_while_the_predicate_is_false`:
+      the chain re-read the authority, found it unchanged, and refused.
+- [x] Byte layout verified against mainnet: our parser and Solana's `jsonParsed` decoder
+      independently produce `GzFgdRJXmawPhGeBsyRCDLx4jAKPsvbUqoqitzppkzkW` for Kamino Lend.
+      Committed as a fixture so it stays proven.
+- [x] Transport errors now retry. A connection reset is how a rate limiter often says no, and
+      treating it as fatal ended a long scan on a condition that clears by waiting.
+
+**Found on the way.**
+
+- Mainnet carries **version-1 transactions**. `getBlock` rejects the whole block if the client asks
+  for a lower ceiling, so this stops a scan rather than degrading it. No project doc mentions v1.
+- Anchor requires `overflow-checks`. Enabled, and correct regardless for code that moves money.
+- Windows-native Rust cannot link here at all (mingw `ld` 116, no MSVC build tools). WSL is the
+  build environment, and it already had solana-cli 3.1.15 and anchor-cli 0.32.1.
+
 ## Next
 
-- [ ] Slot-bounded window scanning (`getBlockTime` binary search → `getBlocks`/`getBlock`)
+- [ ] Deploy `ripcord_vault` to devnet, then mainnet (A1)
 - [ ] Establish and verify Drift and marginfi program IDs; pin Kamino's incident day
 - [ ] 7. Lead-time metric — wired, but unexercised until a real window runs
 - [ ] 8. Dollars in scope at detection

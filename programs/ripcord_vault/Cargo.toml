@@ -1,0 +1,26 @@
+[package]
+name = "ripcord_vault"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "A vault whose guardian can propose an exit but cannot lie about why"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ripcord_vault"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.32.1"
+
+[dev-dependencies]
+litesvm = "0.7"
+solana-sdk = "2.3"
+sha2 = "0.10"

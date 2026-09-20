@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ripcord-policy", "crates/ripcord-backtest"]
+members = ["crates/ripcord-policy", "crates/ripcord-backtest", "programs/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -15,3 +15,10 @@ anyhow = "1"
 ureq = { version = "2", features = ["json"] }
 bs58 = "0.5"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+
+# Anchor requires this, and it is the right default regardless: a silent
+# wraparound in code that moves money is not a rounding error.
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1

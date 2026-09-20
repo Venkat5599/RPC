@@ -15,6 +15,14 @@ use serde_json::{json, Value};
 
 pub const PUBLIC_MAINNET: &str = "https://api.mainnet-beta.solana.com";
 
+/// Highest transaction version this client will accept.
+///
+/// Not cosmetic: `getBlock` rejects the entire block if it contains a
+/// transaction newer than this, so a stale ceiling does not degrade the scan,
+/// it stops it. Mainnet began producing version-1 transactions before this was
+/// written, and none of the project docs mention them.
+pub const MAX_TRANSACTION_VERSION: u8 = 1;
+
 pub struct RpcClient {
     endpoint: String,
     agent: ureq::Agent,
@@ -40,7 +48,7 @@ impl RpcClient {
                 .timeout(Duration::from_secs(30))
                 .build(),
             throttle: Duration::from_millis(250),
-            max_retries: 6,
+            max_retries: 8,
         }
     }
 
@@ -97,6 +105,12 @@ impl RpcClient {
                 }
                 Err(ureq::Error::Status(status, _)) if (500..600).contains(&status) => {
                     last_error = Some(anyhow!("{method}: HTTP {status}"));
+                }
+                // A connection reset is how a rate limiter often says no: the
+                // socket dies rather than returning 429. Treating it as fatal
+                // ends a long scan on a condition that clears by waiting.
+                Err(error @ ureq::Error::Transport(_)) => {
+                    last_error = Some(anyhow!("{method}: {error}"));
                 }
                 Err(other) => return Err(anyhow!("{method}: {other}")),
             }
@@ -183,7 +197,10 @@ impl RpcClient {
                 {
                     "encoding": "jsonParsed",
                     "commitment": "confirmed",
-                    "maxSupportedTransactionVersion": 0
+                    // Mainnet carries version-1 transactions as of 2026. Asking
+                    // for 0 makes the RPC reject the whole block rather than
+                    // skip the transaction, so the ceiling tracks the chain.
+                    "maxSupportedTransactionVersion": MAX_TRANSACTION_VERSION
                 }
             ]),
         )
@@ -261,5 +278,78 @@ impl RpcClient {
             json!([address, { "encoding": "jsonParsed", "commitment": "confirmed" }]),
         )?;
         Ok(result.get("value").filter(|v| !v.is_null()).cloned())
+    }
+}
+
+impl RpcClient {
+    /// Current confirmed slot.
+    pub fn current_slot(&self) -> Result<u64> {
+        let result = self.call("getSlot", json!([{ "commitment": "confirmed" }]))?;
+        result
+            .as_u64()
+            .ok_or_else(|| anyhow!("getSlot returned a non-integer"))
+    }
+
+    /// Block time for a slot, or `None` when the slot was skipped.
+    ///
+    /// A skipped slot is a normal, frequent condition, not an error: it must
+    /// not abort a binary search. An endpoint that has pruned the slot reports
+    /// the same way, which is why the caller checks that the window it got
+    /// back is the window it asked for.
+    pub fn block_time(&self, slot: u64) -> Result<Option<i64>> {
+        match self.call("getBlockTime", json!([slot])) {
+            Ok(value) => Ok(value.as_i64()),
+            Err(error) => {
+                let text = error.to_string();
+                if text.contains("-32009") || text.contains("-32007") || text.contains("skipped") {
+                    Ok(None)
+                } else {
+                    Err(error)
+                }
+            }
+        }
+    }
+
+    /// Confirmed block slots in `[start, end]`.
+    ///
+    /// The RPC caps the span at 500,000 slots per call, so longer windows are
+    /// requested in chunks by the caller.
+    pub fn blocks(&self, start: u64, end: u64) -> Result<Vec<u64>> {
+        let result = self.call("getBlocks", json!([start, end, { "commitment": "confirmed" }]))?;
+        Ok(result
+            .as_array()
+            .map(|slots| slots.iter().filter_map(Value::as_u64).collect())
+            .unwrap_or_default())
+    }
+
+    /// A full block, parsed, with version-0 transactions resolved.
+    ///
+    /// Rewards are excluded because nothing here reads them and they are a
+    /// large share of the payload.
+    pub fn block(&self, slot: u64) -> Result<Option<Value>> {
+        match self.call(
+            "getBlock",
+            json!([
+                slot,
+                {
+                    "encoding": "jsonParsed",
+                    "transactionDetails": "full",
+                    "rewards": false,
+                    "commitment": "confirmed",
+                    "maxSupportedTransactionVersion": MAX_TRANSACTION_VERSION
+                }
+            ]),
+        ) {
+            Ok(value) if value.is_null() => Ok(None),
+            Ok(value) => Ok(Some(value)),
+            Err(error) => {
+                let text = error.to_string();
+                if text.contains("-32009") || text.contains("-32007") || text.contains("skipped") {
+                    Ok(None)
+                } else {
+                    Err(error)
+                }
+            }
+        }
     }
 }

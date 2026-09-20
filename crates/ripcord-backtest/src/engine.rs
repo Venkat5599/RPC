@@ -36,6 +36,32 @@ pub struct WindowResult {
     /// finding, not an error.
     pub refusals: usize,
     pub detections: Vec<Detection>,
+    /// How the window was read: by paging signatures, or by scanning blocks.
+    /// The two count `fetched` in different units, so the report says which.
+    pub scan_mode: ScanMode,
+    /// The slot range actually scanned, when the window was resolved to one.
+    pub slot_range: Option<(u64, u64)>,
+}
+
+/// How a window was read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScanMode {
+    /// `getSignaturesForAddress`, paging backwards from the present. Only
+    /// usable for recent windows.
+    Signatures,
+    /// `getBlocks` + `getBlock` over a resolved slot range. The only approach
+    /// that reaches a historical window.
+    Blocks,
+}
+
+impl ScanMode {
+    /// What one unit of `fetched` means in this mode.
+    pub fn unit(self) -> &'static str {
+        match self {
+            ScanMode::Signatures => "transactions",
+            ScanMode::Blocks => "blocks",
+        }
+    }
 }
 
 impl WindowResult {
@@ -151,6 +177,8 @@ pub fn run_window(
         skipped: Vec::new(),
         refusals: 0,
         detections: Vec::new(),
+        scan_mode: ScanMode::Signatures,
+        slot_range: None,
     };
 
     for (index, (_, signature)) in signatures.iter().enumerate() {
