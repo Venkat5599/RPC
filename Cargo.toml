@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/ripcord-policy", "crates/ripcord-backtest"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+anyhow = "1"
+ureq = { version = "2", features = ["json"] }
+bs58 = "0.5"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
