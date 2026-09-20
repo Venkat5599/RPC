@@ -1,0 +1,12 @@
+[package]
+name = "ripcord-keeper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "The off-chain half: proposes exits the chain then verifies"
+
+[dependencies]
+anyhow = { workspace = true }
+sha2 = { workspace = true }
+solana-client = "2.3"
+solana-sdk = "2.3"

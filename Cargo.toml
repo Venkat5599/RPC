@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ripcord-policy", "crates/ripcord-backtest", "programs/*"]
+members = ["crates/ripcord-policy", "crates/ripcord-backtest", "crates/ripcord-keeper", "programs/*"]
 
 [workspace.package]
 version = "0.1.0"

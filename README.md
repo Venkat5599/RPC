@@ -34,14 +34,23 @@ is a human incident-response loop, not a colocated bot.
 
 ## Status
 
-Day 1 of 23. **Phase 1 (backtest) is in progress. There is no backtested number yet, and the
-generated report says so rather than estimating one.**
+Day 1 of 23. The vault is **live on devnet** and the core claim is demonstrated end to end:
+[DEMO.md](./DEMO.md) lists every signature.
+
+A correctly-signed exit, from the correct guardian, aimed at the correct owner, was **refused** —
+because the chain re-read the target's upgrade authority and disagreed with the keeper. The
+authority was then genuinely transferred, and the identical exit **landed**. Same transaction, both
+times; only a fact on chain differed, and the program read that fact itself.
+
+**There is still no backtested number**, and the generated report says so rather than estimating
+one. That is blocked on an archival RPC endpoint, not on code.
 
 | Component | State |
 |---|---|
 | `ripcord-policy` — evaluator, authority-change policy | 10 tests passing |
 | `ripcord-backtest` — historical replay, slot-bounded block scanner | 7 tests; runs end to end against mainnet |
-| `ripcord_vault` — Anchor program | builds to SBF; 20 tests, including the delegation invariant |
+| `ripcord_vault` — Anchor program | **deployed to devnet**, 20 tests including the delegation invariant |
+| `ripcord-keeper` — the off-chain proposer + demo driver | drives the full run in [DEMO.md](./DEMO.md) |
 | Live TxStream engine | not started (Phase 3, needs Aperture access) |
 
 **37 tests pass across the workspace.** The ones worth naming:
@@ -104,8 +113,11 @@ easiest way to publish a confidently wrong report.
 - The slot-bounded block scanner is built and resolves a window correctly, but public mainnet RPC
   resets the connection under `getBlock` load. Reaching a historical window needs an archival
   endpoint; this is the one thing standing between here and a real backtest number.
-- `ripcord_vault` is not deployed. It builds, and its invariants are tested against the compiled
-  program, but no mainnet program ID exists yet.
+- `ripcord_vault` is on **devnet only**. PRD A1 is not met until it is on mainnet.
+- The exit in the demo was proposed by a human running a CLI. The engine that watches a
+  pre-execution stream and proposes automatically is Phase 3, and needs Aperture access.
+- No slot-timing claim is demonstrated yet. "Exit lands in slot N+1" is not shown by the devnet run
+  and is not claimed by it.
 - Drift and marginfi program IDs are not yet established, so those windows currently enumerate
   without watching anything. The report prints that.
 - Only the authority-change policy is implemented. Oracle staleness and outflow rate are roadmap.
@@ -120,6 +132,7 @@ easiest way to publish a confidently wrong report.
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | how, and the constraints that shaped it |
 | [RIPCORD.md](./RIPCORD.md) | frozen submission spec |
 | [TODO.md](./TODO.md) | the solo plan, with an explicit cut line |
+| [DEMO.md](./DEMO.md) | the devnet run, with every signature |
 | [tasks/](./tasks/) | active plan and the lessons log |
 
 ## Licence

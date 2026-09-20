@@ -99,9 +99,23 @@ Goal, stated as the sentence it must produce:
 - Windows-native Rust cannot link here at all (mingw `ld` 116, no MSVC build tools). WSL is the
   build environment, and it already had solana-cli 3.1.15 and anchor-cli 0.32.1.
 
+## Slice 3 — devnet, same day
+
+- [x] **Deployed to devnet.** `84h2juN2WaFhZtGbaqmeWVVe7HQCUXnDRRtbGZQeAeTu`, deploy signature
+      `2vV6LrQbaRsHThSywaJBZWt3CfF255JJx33NWoqZsqHHPY4WnkjWwmWDmPWJYJtaRSrD31cN5fdAdm4Kewdxc6c5`.
+      First attempt failed with 12 write transactions dropped; public devnet needs
+      `--with-compute-unit-price 50000 --max-sign-attempts 200`.
+- [x] `ripcord-keeper` CLI: vault-init, deposit, policy, arm, exit, revoke, withdraw, seize, status.
+- [x] **The demo beat, proven on a real cluster.** See [DEMO.md](../DEMO.md). The same exit was
+      refused before the authority moved and landed after it. Owner balance 1.61380236 →
+      1.66379236 SOL.
+- [x] **A2 on a live cluster.** With the predicate genuinely true, an exit aimed at a third party
+      was refused by the program.
+- [x] Upgrade authority restored to the deployer after the demo.
+
 ## Next
 
-- [ ] Deploy `ripcord_vault` to devnet, then mainnet (A1)
+- [ ] Deploy to mainnet (A1). Needs real SOL: ~2 SOL for a 282KB program
 - [ ] Establish and verify Drift and marginfi program IDs; pin Kamino's incident day
 - [ ] 7. Lead-time metric — wired, but unexercised until a real window runs
 - [ ] 8. Dollars in scope at detection
