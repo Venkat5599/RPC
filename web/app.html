@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>RIPCORD — console</title>
+<meta name="description" content="Arm a policy, watch the predicate, and propose an exit the chain verifies." />
+
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      colors: { brand: { ember: '#ff621f', amber: '#ff8a3d', ink: '#08080a' } },
+      fontFamily: {
+        display: ['Excon', 'system-ui', 'sans-serif'],
+        sans: ['system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+      }
+    } }
+  };
+</script>
+<link rel="preconnect" href="https://api.fontshare.com" />
+<link href="https://api.fontshare.com/v2/css?f[]=excon@700,400&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+
+<style>
+  html, body { max-width: 100%; }
+  body { background-color: #08080a; color: #e6e6ea; }
+  * { min-width: 0; }
+
+  .glass {
+    background: linear-gradient(180deg, rgba(28,28,34,.7) 0%, rgba(15,15,18,.85) 100%);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,.08);
+    box-shadow: 0 20px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+  .rail {
+    background: rgba(13,13,16,.92);
+    border-right: 1px solid rgba(255,255,255,.07);
+  }
+  .btn-ember {
+    background: linear-gradient(180deg, rgba(46,22,14,.9) 0%, rgba(20,11,8,.96) 100%);
+    border: 1px solid rgba(255,115,45,.38);
+    box-shadow: inset 0 1px 0 rgba(255,145,77,.28);
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .btn-ember:hover:not(:disabled) { border-color: rgba(255,125,60,.7); box-shadow: 0 0 18px rgba(255,98,31,.25), inset 0 1px 0 rgba(255,180,120,.4); }
+  .btn-quiet {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.10);
+    transition: background .2s ease, border-color .2s ease;
+  }
+  .btn-quiet:hover:not(:disabled) { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); }
+  button:disabled { opacity: .42; cursor: not-allowed; }
+
+  .field {
+    background: rgba(0,0,0,.45);
+    border: 1px solid rgba(255,255,255,.10);
+    color: #e6e6ea;
+  }
+  .field:focus { outline: none; border-color: rgba(255,115,45,.55); box-shadow: 0 0 0 3px rgba(255,98,31,.12); }
+
+  .nav-item { transition: background .18s ease, color .18s ease; }
+  .nav-item[aria-current="page"] { background: rgba(255,255,255,.08); color: #fff; }
+  .nav-item[aria-current="page"] .nav-mark { opacity: 1; }
+  .nav-mark { opacity: 0; transition: opacity .18s ease; }
+
+  .verdict-true  { background: linear-gradient(180deg,#ff8a3d,#ff5213); }
+  .verdict-false { background: linear-gradient(180deg,#6b7280,#3f4650); }
+
+  .log-line { border-left: 2px solid rgba(255,255,255,.10); }
+  .log-ok   { border-left-color: #ff7a29; }
+  .log-bad  { border-left-color: #8b5b5b; }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .001ms !important; animation-duration: .001ms !important; } }
+</style>
+</head>
+
+<body class="font-sans antialiased min-h-screen">
+
+<div class="flex min-h-screen">
+
+  <!-- ===================== LEFT RAIL ===================== -->
+  <aside id="rail" class="rail fixed lg:static inset-y-0 left-0 z-40 w-[248px] shrink-0 flex flex-col
+                          -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <div class="px-5 py-5 flex items-center gap-2.5 border-b border-white/[0.06]">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M6 4v9a6 6 0 0 0 12 0V4" stroke="#8a8a95" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M12 13v7" stroke="#ff6a20" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="12" cy="21.2" r="1.8" fill="#ff6a20"/>
+      </svg>
+      <span class="font-display font-bold tracking-[0.08em] text-white text-[15px]">RIPCORD</span>
+      <span class="ml-auto text-[9px] font-semibold tracking-[0.12em] uppercase text-neutral-500">Devnet</span>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5 text-[13px]">
+      <p class="px-3 pt-2 pb-1.5 text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-600">Position</p>
+      <a href="#overview" data-view="overview" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Overview</span></a>
+      <a href="#vault" data-view="vault" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Vault</span></a>
+
+      <p class="px-3 pt-4 pb-1.5 text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-600">Defence</p>
+      <a href="#policy" data-view="policy" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Policy</span></a>
+      <a href="#monitor" data-view="monitor" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Trigger monitor</span></a>
+      <a href="#exit" data-view="exit" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Exit</span></a>
+
+      <p class="px-3 pt-4 pb-1.5 text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-600">Evidence</p>
+      <a href="#activity" data-view="activity" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Activity</span></a>
+      <a href="#feed" data-view="feed" class="nav-item flex items-center gap-2.5 px-3 py-2 rounded-lg text-neutral-300 hover:text-white">
+        <span class="nav-mark w-1 h-4 rounded-full verdict-true"></span><span>Detection feed</span></a>
+    </nav>
+
+    <div class="px-3 py-3 border-t border-white/[0.06] space-y-2">
+      <div id="railWallet" class="px-2 text-[11px] text-neutral-500 leading-relaxed">Not connected</div>
+      <button id="connectBtn" class="btn-ember w-full px-3 py-2 rounded-lg text-[12px] font-semibold text-orange-100">Connect wallet</button>
+      <a href="/" class="block text-center text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors pt-1">Back to site</a>
+    </div>
+  </aside>
+
+  <div id="railScrim" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="flex-1 flex flex-col min-w-0">
+
+    <header class="sticky top-0 z-20 bg-[#08080a]/90 backdrop-blur border-b border-white/[0.06] px-4 sm:px-7 py-3.5 flex items-center gap-3">
+      <button id="railToggle" class="lg:hidden btn-quiet w-9 h-9 rounded-lg flex items-center justify-center shrink-0" aria-label="Open navigation">
+        <svg class="w-4 h-4 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16" stroke-linecap="round"/></svg>
+      </button>
+      <h1 id="viewTitle" class="font-display text-[15px] sm:text-base font-bold text-white truncate">Overview</h1>
+      <div class="ml-auto flex items-center gap-2.5 shrink-0">
+        <span id="slotChip" class="hidden sm:inline text-[11px] font-mono text-neutral-500">slot —</span>
+        <button id="refreshBtn" class="btn-quiet px-3 py-1.5 rounded-lg text-[12px] text-neutral-300">Refresh</button>
+      </div>
+    </header>
+
+    <main class="flex-1 px-4 sm:px-7 py-6 max-w-5xl w-full">
+
+      <!-- ---------- OVERVIEW ---------- -->
+      <section data-panel="overview" class="space-y-5">
+        <div class="glass rounded-xl p-5">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 class="font-display text-base font-bold text-white">Predicate</h2>
+              <p class="text-[12px] text-neutral-400 mt-1">What the chain would decide right now, read live.</p>
+            </div>
+            <div id="predicateChip" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase bg-white/[0.05] border border-white/10 text-neutral-400">unknown</div>
+          </div>
+          <dl class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-[12px]">
+            <div class="flex justify-between gap-3 border-b border-white/[0.06] pb-2"><dt class="text-neutral-500">Baseline authority</dt><dd id="ovBaseline" class="font-mono text-neutral-300 truncate">—</dd></div>
+            <div class="flex justify-between gap-3 border-b border-white/[0.06] pb-2"><dt class="text-neutral-500">Live authority</dt><dd id="ovLive" class="font-mono text-neutral-300 truncate">—</dd></div>
+            <div class="flex justify-between gap-3 border-b border-white/[0.06] pb-2"><dt class="text-neutral-500">Vault balance</dt><dd id="ovBalance" class="font-mono text-neutral-300">—</dd></div>
+            <div class="flex justify-between gap-3 border-b border-white/[0.06] pb-2"><dt class="text-neutral-500">Policy armed</dt><dd id="ovArmed" class="font-mono text-neutral-300">—</dd></div>
+          </dl>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="glass rounded-xl p-4">
+            <p class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Vault</p>
+            <p id="ovVaultAddr" class="font-mono text-[11px] text-neutral-300 mt-2 break-all">connect a wallet</p>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <p class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Guardian</p>
+            <p id="ovGuardian" class="font-mono text-[11px] text-neutral-300 mt-2 break-all">—</p>
+          </div>
+          <div class="glass rounded-xl p-4">
+            <p class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Exits executed</p>
+            <p id="ovExits" class="font-mono text-[11px] text-neutral-300 mt-2">—</p>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-5">
+          <h2 class="font-display text-base font-bold text-white">What this console is</h2>
+          <p class="text-[12px] text-neutral-400 mt-2 leading-relaxed">
+            Every button here sends a real transaction to Solana devnet and every value is read from
+            chain state. Nothing is mocked. The exit action is the interesting one: it is a
+            <em class="not-italic text-neutral-300">proposal</em>, and the program will reject it unless
+            the predicate above is true.
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- VAULT ---------- -->
+      <section data-panel="vault" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <h2 class="font-display text-base font-bold text-white">Vault</h2>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            A PDA you own. The only address funds can ever leave to is yours &mdash; enforced by the
+            program, not by this page.
+          </p>
+          <dl class="mt-4 space-y-2 text-[12px]">
+            <div class="flex justify-between gap-3"><dt class="text-neutral-500">Address</dt><dd id="vtAddr" class="font-mono text-neutral-300 break-all text-right">—</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-neutral-500">Balance</dt><dd id="vtBalance" class="font-mono text-neutral-300">—</dd></div>
+            <div class="flex justify-between gap-3"><dt class="text-neutral-500">Policies</dt><dd id="vtPolicies" class="font-mono text-neutral-300">—</dd></div>
+          </dl>
+          <div class="mt-5 flex flex-wrap gap-2.5">
+            <button data-act="initVault" class="btn-ember px-4 py-2 rounded-lg text-[12px] font-semibold text-orange-100">Create vault</button>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-5">
+          <h3 class="text-[13px] font-semibold text-white">Deposit</h3>
+          <div class="mt-3 flex flex-col sm:flex-row gap-2.5 sm:items-center">
+            <label class="sr-only" for="depositAmount">Amount in SOL</label>
+            <input id="depositAmount" type="number" step="0.01" min="0" value="0.05"
+                   class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full sm:w-44" />
+            <button data-act="deposit" class="btn-ember px-4 py-2 rounded-lg text-[12px] font-semibold text-orange-100 shrink-0">Deposit SOL</button>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-5">
+          <h3 class="text-[13px] font-semibold text-white">Emergency withdrawal</h3>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            Always available to you, bypassing every policy and every guardian. No delay, no quorum.
+          </p>
+          <div class="mt-3 flex flex-col sm:flex-row gap-2.5 sm:items-center">
+            <label class="sr-only" for="withdrawAmount">Amount in SOL</label>
+            <input id="withdrawAmount" type="number" step="0.01" min="0" value="0.01"
+                   class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full sm:w-44" />
+            <button data-act="withdraw" class="btn-quiet px-4 py-2 rounded-lg text-[12px] font-semibold text-neutral-200 shrink-0">Withdraw to me</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- POLICY ---------- -->
+      <section data-panel="policy" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <h2 class="font-display text-base font-bold text-white">Policy</h2>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            One policy type ships today: <span class="text-neutral-300">authority change</span>. It is
+            the one that is fully trustless on chain, because the program can read the target&rsquo;s
+            upgrade authority itself.
+          </p>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="policyId" class="block text-[11px] text-neutral-500 mb-1.5">Policy id</label>
+              <input id="policyId" type="number" min="0" value="1" class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full" />
+            </div>
+            <div>
+              <label for="targetProgram" class="block text-[11px] text-neutral-500 mb-1.5">Target program</label>
+              <input id="targetProgram" type="text" spellcheck="false"
+                     value="84h2juN2WaFhZtGbaqmeWVVe7HQCUXnDRRtbGZQeAeTu"
+                     class="field rounded-lg px-3 py-2 text-[12px] font-mono w-full" />
+            </div>
+          </div>
+          <p class="text-[11px] text-neutral-500 mt-2">
+            Program data account: <span id="derivedProgramData" class="font-mono text-neutral-400">—</span>
+          </p>
+
+          <div class="mt-4 flex flex-wrap gap-2.5">
+            <button data-act="setPolicy" class="btn-quiet px-4 py-2 rounded-lg text-[12px] font-semibold text-neutral-200">Store policy</button>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-5">
+          <h3 class="text-[13px] font-semibold text-white">Arm</h3>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            Arming records the target&rsquo;s current upgrade authority as the baseline &mdash; read by the
+            program from the chain, not supplied by this page. That is what makes the later comparison
+            mean something.
+          </p>
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-3">
+              <label for="guardianKey" class="block text-[11px] text-neutral-500 mb-1.5">Guardian (may propose exits)</label>
+              <input id="guardianKey" type="text" spellcheck="false" placeholder="defaults to your own wallet"
+                     class="field rounded-lg px-3 py-2 text-[12px] font-mono w-full" />
+            </div>
+            <div>
+              <label for="capAmount" class="block text-[11px] text-neutral-500 mb-1.5">Exit cap (SOL)</label>
+              <input id="capAmount" type="number" step="0.01" min="0" value="0.1" class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full" />
+            </div>
+            <div>
+              <label for="expiresIn" class="block text-[11px] text-neutral-500 mb-1.5">Expires in (slots)</label>
+              <input id="expiresIn" type="number" min="1" value="432000" class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full" />
+            </div>
+          </div>
+          <div class="mt-4 flex flex-wrap gap-2.5">
+            <button data-act="arm" class="btn-ember px-4 py-2 rounded-lg text-[12px] font-semibold text-orange-100">Arm policy</button>
+            <button data-act="revoke" class="btn-quiet px-4 py-2 rounded-lg text-[12px] font-semibold text-neutral-200">Revoke</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- MONITOR ---------- -->
+      <section data-panel="monitor" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 class="font-display text-base font-bold text-white">Trigger monitor</h2>
+              <p class="text-[12px] text-neutral-400 mt-1">
+                The target&rsquo;s live upgrade authority against the baseline recorded at arming.
+              </p>
+            </div>
+            <label class="flex items-center gap-2 text-[12px] text-neutral-400 shrink-0">
+              <input id="autoPoll" type="checkbox" class="rounded border-white/20 bg-black/40 text-brand-ember focus:ring-0" />
+              <span>Poll every 10s</span>
+            </label>
+          </div>
+
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="relative rounded-lg bg-black/40 border border-white/[0.07] p-4 pl-5">
+              <span class="verdict-false absolute left-0 top-3 bottom-3 w-[3px] rounded-full"></span>
+              <p class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Baseline at arming</p>
+              <p id="mnBaseline" class="font-mono text-[12px] text-neutral-300 mt-2 break-all">—</p>
+            </div>
+            <div class="relative rounded-lg bg-black/40 border border-white/[0.07] p-4 pl-5">
+              <span id="mnLiveRail" class="verdict-false absolute left-0 top-3 bottom-3 w-[3px] rounded-full"></span>
+              <p class="text-[10px] font-semibold tracking-[0.14em] uppercase text-neutral-500">Live on chain</p>
+              <p id="mnLive" class="font-mono text-[12px] text-neutral-300 mt-2 break-all">—</p>
+            </div>
+          </div>
+
+          <div id="mnVerdict" class="mt-4 rounded-lg border border-white/[0.07] bg-black/30 px-4 py-3 text-[12px] text-neutral-400">
+            Connect a wallet and arm a policy to begin watching.
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- EXIT ---------- -->
+      <section data-panel="exit" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <h2 class="font-display text-base font-bold text-white">Propose an exit</h2>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            This is a proposal, not an instruction. The program re-reads the target&rsquo;s upgrade
+            authority and compares it against the baseline. If nothing changed, the transaction fails
+            and no lamports move &mdash; which is the entire point.
+          </p>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="exitAmount" class="block text-[11px] text-neutral-500 mb-1.5">Amount (SOL)</label>
+              <input id="exitAmount" type="number" step="0.01" min="0" value="0.02" class="field rounded-lg px-3 py-2 text-[13px] font-mono w-full" />
+            </div>
+            <div>
+              <label for="exitDest" class="block text-[11px] text-neutral-500 mb-1.5">Destination</label>
+              <input id="exitDest" type="text" spellcheck="false" placeholder="your wallet (the only one allowed)"
+                     class="field rounded-lg px-3 py-2 text-[12px] font-mono w-full" />
+            </div>
+          </div>
+          <p class="text-[11px] text-neutral-500 mt-2 leading-relaxed">
+            Try putting someone else&rsquo;s address in that field. The program will refuse it, even when
+            the predicate is true.
+          </p>
+
+          <div class="mt-4">
+            <button data-act="exit" class="btn-ember px-4 py-2 rounded-lg text-[12px] font-semibold text-orange-100">Propose exit</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---------- ACTIVITY ---------- -->
+      <section data-panel="activity" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display text-base font-bold text-white">Activity</h2>
+              <p class="text-[12px] text-neutral-400 mt-1">Signatures touching this vault, newest first.</p>
+            </div>
+            <button data-act="loadActivity" class="btn-quiet px-3 py-1.5 rounded-lg text-[12px] text-neutral-300 shrink-0">Load</button>
+          </div>
+          <ul id="activityList" class="mt-4 space-y-2 text-[12px] text-neutral-400">
+            <li>Nothing loaded yet.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ---------- FEED ---------- -->
+      <section data-panel="feed" class="space-y-5 hidden">
+        <div class="glass rounded-xl p-5">
+          <h2 class="font-display text-base font-bold text-white">Detection feed</h2>
+          <p class="text-[12px] text-neutral-400 mt-1 leading-relaxed">
+            The free, public half of the product: every detection published with no deposit, no
+            delegation and no signature. The ask is a webhook, not a bank transfer.
+          </p>
+          <div class="mt-4 rounded-lg border border-dashed border-white/[0.12] bg-black/25 px-4 py-4">
+            <p class="text-[12px] text-neutral-300 font-medium">Not live yet &mdash; and not pretending to be.</p>
+            <p class="text-[12px] text-neutral-500 mt-1.5 leading-relaxed">
+              The feed runs on the same evaluator as the backtest and the live engine. It needs the
+              pre-execution stream that is still blocked on sponsor access, so there is nothing
+              honest to show here. When it is live, this panel lists detections as they publish.
+            </p>
+          </div>
+          <p class="text-[11px] text-neutral-500 mt-4">
+            The evaluator itself is real and tested today &mdash;
+            <a class="text-neutral-400 hover:text-brand-amber transition-colors" href="https://github.com/Venkat5599/RPC" target="_blank" rel="noopener">read it on GitHub</a>.
+          </p>
+        </div>
+      </section>
+
+      <!-- ---------- CONSOLE LOG ---------- -->
+      <div class="glass rounded-xl p-5 mt-5">
+        <div class="flex items-center justify-between gap-4">
+          <h2 class="font-display text-[13px] font-bold text-white">Console</h2>
+          <button id="clearLog" class="text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors">Clear</button>
+        </div>
+        <div id="log" class="mt-3 space-y-1.5 text-[11px] font-mono text-neutral-400 max-h-64 overflow-y-auto">
+          <p class="log-line pl-2.5">ready.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PROGRAM_ID_STR = '84h2juN2WaFhZtGbaqmeWVVe7HQCUXnDRRtbGZQeAeTu';
+  var RPC = 'https://api.devnet.solana.com';
+  var LOADER_STR = 'BPFLoaderUpgradeab1e11111111111111111111111';
+
+  var web3 = window.solanaWeb3;
+  var PublicKey = web3.PublicKey;
+  var Transaction = web3.Transaction;
+  var TransactionInstruction = web3.TransactionInstruction;
+  var SystemProgram = web3.SystemProgram;
+  var LAMPORTS = web3.LAMPORTS_PER_SOL;
+
+  var connection = new web3.Connection(RPC, 'confirmed');
+  var PROGRAM_ID = new PublicKey(PROGRAM_ID_STR);
+  var LOADER_ID = new PublicKey(LOADER_STR);
+
+  var wallet = null;      // connected pubkey
+  var vaultPda = null;
+  var pollTimer = null;
+  var lastPolicy = null;  // decoded policy account
+
+  // ---------- helpers ----------
+  function $(id) { return document.getElementById(id); }
+
+  function log(message, kind) {
+    var box = $('log');
+    var line = document.createElement('p');
+    line.className = 'log-line pl-2.5 ' + (kind === 'ok' ? 'log-ok' : kind === 'bad' ? 'log-bad' : '');
+    var stamp = new Date().toLocaleTimeString();
+    line.textContent = stamp + '  ' + message;
+    box.insertBefore(line, box.firstChild);
+    while (box.children.length > 60) box.removeChild(box.lastChild);
+  }
+
+  function short(value) {
+    if (!value) return '—';
+    var s = value.toString();
+    return s.length > 16 ? s.slice(0, 6) + '…' + s.slice(-6) : s;
+  }
+
+  function solText(lamports) {
+    return (lamports / LAMPORTS).toFixed(6).replace(/0+$/, '').replace(/\.$/, '') + ' SOL';
+  }
+
+  // Anchor discriminator: sha256("global:<name>")[0..8]
+  async function discriminator(name) {
+    var bytes = new TextEncoder().encode('global:' + name);
+    var digest = await crypto.subtle.digest('SHA-256', bytes);
+    return new Uint8Array(digest).slice(0, 8);
+  }
+
+  function concat(parts) {
+    var total = parts.reduce(function (n, p) { return n + p.length; }, 0);
+    var out = new Uint8Array(total);
+    var offset = 0;
+    parts.forEach(function (p) { out.set(p, offset); offset += p.length; });
+    return out;
+  }
+
+  function u64(value) {
+    var out = new Uint8Array(8);
+    var big = BigInt(value);
+    for (var i = 0; i < 8; i++) { out[i] = Number(big & 0xffn); big >>= 8n; }
+    return out;
+  }
+
+  async function ixData(name, args) {
+    return concat([await discriminator(name)].concat(args || []));
+  }
+
+  function vaultFor(owner) {
+    return PublicKey.findProgramAddressSync(
+      [new TextEncoder().encode('vault'), owner.toBytes()], PROGRAM_ID)[0];
+  }
+  function policyFor(vault, id) {
+    return PublicKey.findProgramAddressSync(
+      [new TextEncoder().encode('policy'), vault.toBytes(), u64(id)], PROGRAM_ID)[0];
+  }
+  function programDataFor(program) {
+    return PublicKey.findProgramAddressSync([program.toBytes()], LOADER_ID)[0];
+  }
+
+  // ProgramData: u32 tag | u64 slot | Option<Pubkey>. Same offsets the program uses.
+  function readAuthority(data) {
+    if (!data || data.length < 45) return { key: null, immutable: false, readable: false };
+    if (data[12] === 0) return { key: null, immutable: true, readable: true };
+    return { key: new PublicKey(data.slice(13, 45)), immutable: false, readable: true };
+  }
+
+  // Policy account, after the 8-byte discriminator.
+  function decodePolicy(data) {
+    if (!data || data.length < 8 + 32 + 8 + 1 + 32 + 32 + 32 + 1 + 32 + 1) return null;
+    var o = 8;
+    var vault = new PublicKey(data.slice(o, o + 32)); o += 32;
+    var id = Number(new DataView(data.buffer, data.byteOffset + o, 8).getBigUint64(0, true)); o += 8;
+    o += 1; // kind
+    var targetProgram = new PublicKey(data.slice(o, o + 32)); o += 32;
+    var targetProgramData = new PublicKey(data.slice(o, o + 32)); o += 32;
+    var baseline = new PublicKey(data.slice(o, o + 32)); o += 32;
+    var baselineImmutable = data[o] === 1; o += 1;
+    var guardian = new PublicKey(data.slice(o, o + 32)); o += 32;
+    var armed = data[o] === 1; o += 1;
+    return {
+      vault: vault, id: id, targetProgram: targetProgram, targetProgramData: targetProgramData,
+      baseline: baseline, baselineImmutable: baselineImmutable, guardian: guardian, armed: armed
+    };
+  }
+
+  function predicateTrue(policy, live) {
+    if (!policy || !live || !live.readable) return null;
+    if (policy.baselineImmutable !== live.immutable) return true;
+    if (live.immutable) return false;
+    return policy.baseline.toBase58() !== live.key.toBase58();
+  }
+
+  function provider() {
+    var p = window.phantom && window.phantom.solana ? window.phantom.solana : window.solana;
+    return p && p.isPhantom !== undefined ? p : p || null;
+  }
+
+  async function send(instruction, label) {
+    var p = provider();
+    if (!p || !wallet) { log('connect a wallet first', 'bad'); return null; }
+    try {
+      var tx = new Transaction().add(instruction);
+      tx.feePayer = wallet;
+      tx.recentBlockhash = (await connection.getLatestBlockhash('confirmed')).blockhash;
+      var signed = await p.signAndSendTransaction(tx);
+      var signature = signed.signature || signed;
+      log(label + ' sent: ' + short(signature), 'ok');
+      await connection.confirmTransaction(signature, 'confirmed');
+      log(label + ' confirmed. solscan.io/tx/' + signature + '?cluster=devnet', 'ok');
+      await refresh();
+      return signature;
+    } catch (error) {
+      var text = (error && error.message) ? error.message : String(error);
+      if (/PredicateFalse|predicate is false|0x177b/i.test(text)) {
+        log('REFUSED — the chain re-read the authority and it has not changed. Nothing moved.', 'bad');
+      } else if (/DestinationNotOwner|ConstraintAddress|0x7d1/i.test(text)) {
+        log('REFUSED — the guardian cannot name a destination. Only the owner.', 'bad');
+      } else {
+        log(label + ' failed: ' + text, 'bad');
+      }
+      return null;
+    }
+  }
+
+  // ---------- reads ----------
+  async function refresh() {
+    try {
+      var slot = await connection.getSlot('confirmed');
+      $('slotChip').textContent = 'slot ' + slot;
+    } catch (e) { /* endpoint hiccup; the rest still tries */ }
+
+    if (!wallet) return;
+
+    vaultPda = vaultFor(wallet);
+    $('vtAddr').textContent = vaultPda.toBase58();
+    $('ovVaultAddr').textContent = vaultPda.toBase58();
+
+    var vaultAccount = await connection.getAccountInfo(vaultPda);
+    if (!vaultAccount) {
+      $('vtBalance').textContent = 'no vault yet';
+      $('ovBalance').textContent = 'no vault yet';
+      $('vtPolicies').textContent = '—';
+      $('ovExits').textContent = '—';
+    } else {
+      $('vtBalance').textContent = solText(vaultAccount.lamports);
+      $('ovBalance').textContent = solText(vaultAccount.lamports);
+      var d = vaultAccount.data;
+      if (d.length >= 8 + 32 + 1 + 8 + 8) {
+        var view = new DataView(d.buffer, d.byteOffset);
+        $('vtPolicies').textContent = String(view.getBigUint64(8 + 32 + 1, true));
+        $('ovExits').textContent = String(view.getBigUint64(8 + 32 + 1 + 8, true));
+      }
+    }
+
+    var id = Number($('policyId').value || 1);
+    var policyPda = policyFor(vaultPda, id);
+    var policyAccount = await connection.getAccountInfo(policyPda);
+    lastPolicy = policyAccount ? decodePolicy(policyAccount.data) : null;
+
+    if (!lastPolicy) {
+      $('ovBaseline').textContent = 'no policy';
+      $('ovArmed').textContent = '—';
+      $('ovGuardian').textContent = '—';
+      $('mnBaseline').textContent = 'no policy stored';
+      setPredicate(null);
+      return;
+    }
+
+    $('ovBaseline').textContent = lastPolicy.baselineImmutable ? 'immutable' : short(lastPolicy.baseline);
+    $('ovArmed').textContent = lastPolicy.armed ? 'yes' : 'no';
+    $('ovGuardian').textContent = short(lastPolicy.guardian);
+    $('mnBaseline').textContent = lastPolicy.baselineImmutable ? 'none (immutable)' : lastPolicy.baseline.toBase58();
+
+    var pdAccount = await connection.getAccountInfo(lastPolicy.targetProgramData);
+    var live = readAuthority(pdAccount ? pdAccount.data : null);
+    var liveText = !live.readable ? 'unreadable' : live.immutable ? 'none (immutable)' : live.key.toBase58();
+    $('ovLive').textContent = live.readable && !live.immutable ? short(live.key) : liveText;
+    $('mnLive').textContent = liveText;
+
+    setPredicate(predicateTrue(lastPolicy, live));
+  }
+
+  function setPredicate(value) {
+    var chip = $('predicateChip');
+    var verdict = $('mnVerdict');
+    var rail = $('mnLiveRail');
+    if (value === null) {
+      chip.textContent = 'unknown';
+      chip.className = 'px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase bg-white/[0.05] border border-white/10 text-neutral-400';
+      rail.className = 'verdict-false absolute left-0 top-3 bottom-3 w-[3px] rounded-full';
+      verdict.textContent = 'Connect a wallet and arm a policy to begin watching.';
+      verdict.className = 'mt-4 rounded-lg border border-white/[0.07] bg-black/30 px-4 py-3 text-[12px] text-neutral-400';
+      return;
+    }
+    if (value) {
+      chip.textContent = 'true';
+      chip.className = 'px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase bg-brand-ember/15 border border-brand-ember/40 text-brand-amber';
+      rail.className = 'verdict-true absolute left-0 top-3 bottom-3 w-[3px] rounded-full';
+      verdict.textContent = 'The authority has changed. An exit to the owner would be permitted.';
+      verdict.className = 'mt-4 rounded-lg border border-brand-ember/30 bg-brand-ember/[0.07] px-4 py-3 text-[12px] text-neutral-200';
+    } else {
+      chip.textContent = 'false';
+      chip.className = 'px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[0.1em] uppercase bg-white/[0.05] border border-white/10 text-neutral-400';
+      rail.className = 'verdict-false absolute left-0 top-3 bottom-3 w-[3px] rounded-full';
+      verdict.textContent = 'Unchanged. An exit would be refused by the program, whoever signed it.';
+      verdict.className = 'mt-4 rounded-lg border border-white/[0.07] bg-black/30 px-4 py-3 text-[12px] text-neutral-400';
+    }
+  }
+
+  // ---------- actions ----------
+  function targetKey() {
+    try { return new PublicKey($('targetProgram').value.trim()); }
+    catch (e) { log('target program is not a valid address', 'bad'); return null; }
+  }
+
+  var actions = {
+    initVault: async function () {
+      var data = await ixData('initialize_vault');
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: vaultFor(wallet), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+        ],
+        data: data
+      }), 'create vault');
+    },
+
+    deposit: async function () {
+      var lamports = Math.round(parseFloat($('depositAmount').value) * LAMPORTS);
+      if (!(lamports > 0)) { log('deposit must be greater than zero', 'bad'); return; }
+      var data = await ixData('deposit', [u64(lamports)]);
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: vaultFor(wallet), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+        ],
+        data: data
+      }), 'deposit');
+    },
+
+    withdraw: async function () {
+      var lamports = Math.round(parseFloat($('withdrawAmount').value) * LAMPORTS);
+      if (!(lamports > 0)) { log('withdrawal must be greater than zero', 'bad'); return; }
+      var data = await ixData('emergency_owner_withdraw', [u64(lamports)]);
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: vaultFor(wallet), isSigner: false, isWritable: true }
+        ],
+        data: data
+      }), 'withdraw');
+    },
+
+    setPolicy: async function () {
+      var target = targetKey(); if (!target) return;
+      var id = Number($('policyId').value || 1);
+      var vault = vaultFor(wallet);
+      var data = await ixData('set_policy', [u64(id), target.toBytes(), programDataFor(target).toBytes()]);
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: true },
+          { pubkey: vault, isSigner: false, isWritable: true },
+          { pubkey: policyFor(vault, id), isSigner: false, isWritable: true },
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }
+        ],
+        data: data
+      }), 'store policy');
+    },
+
+    arm: async function () {
+      var target = targetKey(); if (!target) return;
+      var id = Number($('policyId').value || 1);
+      var vault = vaultFor(wallet);
+      var guardianText = $('guardianKey').value.trim();
+      var guardian;
+      try { guardian = guardianText ? new PublicKey(guardianText) : wallet; }
+      catch (e) { log('guardian is not a valid address', 'bad'); return; }
+
+      var cap = Math.round(parseFloat($('capAmount').value) * LAMPORTS);
+      if (!(cap > 0)) { log('exit cap must be greater than zero', 'bad'); return; }
+      var slot = await connection.getSlot('confirmed');
+      var expiresAt = slot + Number($('expiresIn').value || 432000);
+
+      var data = await ixData('arm', [guardian.toBytes(), u64(expiresAt), u64(cap)]);
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: false },
+          { pubkey: vault, isSigner: false, isWritable: false },
+          { pubkey: policyFor(vault, id), isSigner: false, isWritable: true },
+          { pubkey: programDataFor(target), isSigner: false, isWritable: false }
+        ],
+        data: data
+      }), 'arm');
+    },
+
+    revoke: async function () {
+      var id = Number($('policyId').value || 1);
+      var vault = vaultFor(wallet);
+      var data = await ixData('revoke');
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: false },
+          { pubkey: vault, isSigner: false, isWritable: false },
+          { pubkey: policyFor(vault, id), isSigner: false, isWritable: true }
+        ],
+        data: data
+      }), 'revoke');
+    },
+
+    exit: async function () {
+      var target = targetKey(); if (!target) return;
+      var id = Number($('policyId').value || 1);
+      var vault = vaultFor(wallet);
+      var lamports = Math.round(parseFloat($('exitAmount').value) * LAMPORTS);
+      if (!(lamports > 0)) { log('exit amount must be greater than zero', 'bad'); return; }
+
+      var destinationText = $('exitDest').value.trim();
+      var destination;
+      try { destination = destinationText ? new PublicKey(destinationText) : wallet; }
+      catch (e) { log('destination is not a valid address', 'bad'); return; }
+      if (destination.toBase58() !== wallet.toBase58()) {
+        log('proposing an exit to ' + short(destination) + ' — expect the program to refuse it', 'bad');
+      }
+
+      var data = await ixData('execute_exit', [u64(lamports)]);
+      return send(new TransactionInstruction({
+        programId: PROGRAM_ID,
+        keys: [
+          { pubkey: wallet, isSigner: true, isWritable: false },
+          { pubkey: destination, isSigner: false, isWritable: true },
+          { pubkey: vault, isSigner: false, isWritable: true },
+          { pubkey: policyFor(vault, id), isSigner: false, isWritable: true },
+          { pubkey: programDataFor(target), isSigner: false, isWritable: false }
+        ],
+        data: data
+      }), 'exit');
+    },
+
+    loadActivity: async function () {
+      if (!wallet) { log('connect a wallet first', 'bad'); return; }
+      var list = $('activityList');
+      list.innerHTML = '<li>Loading…</li>';
+      try {
+        var signatures = await connection.getSignaturesForAddress(vaultFor(wallet), { limit: 15 });
+        if (!signatures.length) { list.innerHTML = '<li>No transactions for this vault yet.</li>'; return; }
+        list.innerHTML = '';
+        signatures.forEach(function (entry) {
+          var li = document.createElement('li');
+          li.className = 'flex flex-wrap items-center gap-2 justify-between border-b border-white/[0.06] pb-2';
+          var when = entry.blockTime ? new Date(entry.blockTime * 1000).toLocaleString() : 'pending';
+          li.innerHTML =
+            '<a class="font-mono text-neutral-300 hover:text-brand-amber transition-colors" target="_blank" rel="noopener" href="https://solscan.io/tx/' +
+            entry.signature + '?cluster=devnet">' + short(entry.signature) + '</a>' +
+            '<span class="text-neutral-500 text-[11px]">' + when + (entry.err ? ' · failed' : '') + '</span>';
+          list.appendChild(li);
+        });
+        log('loaded ' + signatures.length + ' signatures', 'ok');
+      } catch (error) {
+        list.innerHTML = '<li>Could not load activity.</li>';
+        log('activity failed: ' + error.message, 'bad');
+      }
+    }
+  };
+
+  // ---------- wiring ----------
+  document.addEventListener('click', function (event) {
+    var button = event.target.closest('[data-act]');
+    if (!button) return;
+    var name = button.getAttribute('data-act');
+    if (!actions[name]) return;
+    if (!wallet && name !== 'loadActivity') { log('connect a wallet first', 'bad'); return; }
+    button.disabled = true;
+    Promise.resolve(actions[name]()).catch(function (error) {
+      log(name + ' error: ' + (error.message || error), 'bad');
+    }).finally(function () { button.disabled = false; });
+  });
+
+  $('connectBtn').addEventListener('click', async function () {
+    var p = provider();
+    if (!p) {
+      log('no Solana wallet found. Install Phantom, then reload.', 'bad');
+      window.open('https://phantom.app/', '_blank', 'noopener');
+      return;
+    }
+    try {
+      var result = await p.connect();
+      wallet = result.publicKey ? result.publicKey : p.publicKey;
+      $('railWallet').textContent = wallet.toBase58();
+      $('connectBtn').textContent = 'Connected';
+      log('connected ' + short(wallet), 'ok');
+      await refresh();
+    } catch (error) {
+      log('connection refused: ' + (error.message || error), 'bad');
+    }
+  });
+
+  $('refreshBtn').addEventListener('click', function () { refresh().catch(function (e) { log(e.message, 'bad'); }); });
+  $('clearLog').addEventListener('click', function () { $('log').innerHTML = ''; });
+
+  $('autoPoll').addEventListener('change', function () {
+    if (this.checked) {
+      pollTimer = setInterval(function () { refresh().catch(function () {}); }, 10000);
+      log('polling every 10s', 'ok');
+    } else {
+      clearInterval(pollTimer); pollTimer = null;
+      log('polling stopped');
+    }
+  });
+
+  $('targetProgram').addEventListener('input', function () {
+    try { $('derivedProgramData').textContent = programDataFor(new PublicKey(this.value.trim())).toBase58(); }
+    catch (e) { $('derivedProgramData').textContent = '—'; }
+  });
+
+  // views
+  var titles = {
+    overview: 'Overview', vault: 'Vault', policy: 'Policy',
+    monitor: 'Trigger monitor', exit: 'Exit', activity: 'Activity', feed: 'Detection feed'
+  };
+  function show(view) {
+    if (!titles[view]) view = 'overview';
+    document.querySelectorAll('[data-panel]').forEach(function (panel) {
+      panel.classList.toggle('hidden', panel.getAttribute('data-panel') !== view);
+    });
+    document.querySelectorAll('[data-view]').forEach(function (link) {
+      if (link.getAttribute('data-view') === view) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+    $('viewTitle').textContent = titles[view];
+    closeRail();
+  }
+  window.addEventListener('hashchange', function () { show(location.hash.replace('#', '')); });
+
+  // rail on small screens
+  function openRail() { $('rail').classList.remove('-translate-x-full'); $('railScrim').classList.remove('hidden'); }
+  function closeRail() {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    $('rail').classList.add('-translate-x-full'); $('railScrim').classList.add('hidden');
+  }
+  $('railToggle').addEventListener('click', openRail);
+  $('railScrim').addEventListener('click', closeRail);
+
+  // boot
+  show(location.hash.replace('#', '') || 'overview');
+  try { $('derivedProgramData').textContent = programDataFor(PROGRAM_ID).toBase58(); } catch (e) {}
+  refresh().catch(function () {});
+  if (!provider()) log('no wallet detected — install Phantom to use the actions');
+})();
+</script>
+</body>
+</html>

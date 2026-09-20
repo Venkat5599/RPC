@@ -2,3 +2,6 @@
 /cache
 .env
 *.tmp
+.env.local
+.env.*.local
+.vercel
